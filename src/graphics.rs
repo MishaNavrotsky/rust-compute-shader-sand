@@ -5,8 +5,8 @@ use std::{
 };
 
 use wgpu::{
-    Adapter, BindGroup, BindGroupLayout, Buffer, BufferBinding, BufferDescriptor, Color,
-    CommandEncoder, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline,
+    Adapter, BindGroup, BindGroupLayout, Buffer, BufferBinding, BufferDescriptor, BufferView,
+    Color, CommandEncoder, CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline,
     ComputePipelineDescriptor, Device, DeviceDescriptor, ExperimentalFeatures, Features,
     FragmentState, Instance, Limits, LoadOp, MemoryHints, Operations, PipelineCompilationOptions,
     PowerPreference, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
@@ -50,7 +50,7 @@ pub async fn create_graphics(window: Arc<Window>, proxy: EventLoopProxy<Graphics
 
     surface.configure(&device, &surface_config);
 
-    let globlas_bind = GlobalsBind {
+    let globals_bind = GlobalsBind {
         buffer: device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Globals Buffer"),
             contents: bytemuck::bytes_of(&Globals::default()),
@@ -60,10 +60,11 @@ pub async fn create_graphics(window: Arc<Window>, proxy: EventLoopProxy<Graphics
     let pipelines = prepare_pipelines(&device, &surface_config);
     let targets = prepare_targets(
         &device,
+        &queue,
         &surface_config,
         &pipelines.cs_bind_group_layout,
         &pipelines.rs_bind_group_layout,
-        &globlas_bind.buffer,
+        &globals_bind.buffer,
     );
     let gfx = Graphics {
         window: window.clone(),
@@ -75,10 +76,12 @@ pub async fn create_graphics(window: Arc<Window>, proxy: EventLoopProxy<Graphics
         queue,
         pipelines,
         targets,
-        globals: globlas_bind,
+        globals: globals_bind,
         start_instant: Instant::now(),
 
         mouse_pos: [0.0, 0.0],
+
+        ping: true,
     };
 
     let _ = proxy.send_event(gfx);
@@ -92,6 +95,26 @@ pub fn prepare_pipelines(device: &Device, surface_config: &SurfaceConfiguration)
             ty: wgpu::BufferBindingType::Uniform,
             has_dynamic_offset: false,
             min_binding_size: std::num::NonZeroU64::new(std::mem::size_of::<Globals>() as u64),
+        },
+        count: None,
+    };
+    let compute_buffer_a_bind_group_layout_entry = wgpu::BindGroupLayoutEntry {
+        binding: 2,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::Buffer {
+            ty: wgpu::BufferBindingType::Storage { read_only: false },
+            has_dynamic_offset: false,
+            min_binding_size: None,
+        },
+        count: None,
+    };
+    let compute_buffer_b_bind_group_layout_entry = wgpu::BindGroupLayoutEntry {
+        binding: 3,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::Buffer {
+            ty: wgpu::BufferBindingType::Storage { read_only: false },
+            has_dynamic_offset: false,
+            min_binding_size: None,
         },
         count: None,
     };
@@ -109,6 +132,8 @@ pub fn prepare_pipelines(device: &Device, surface_config: &SurfaceConfiguration)
                 count: None,
             },
             globals_bind_group_layout_entry.clone(),
+            compute_buffer_a_bind_group_layout_entry.clone(),
+            compute_buffer_b_bind_group_layout_entry.clone(),
         ],
     });
     let compute_pipeline = create_compute_pipeline(&device, &cs_bind_group_layout);
@@ -142,6 +167,7 @@ pub fn prepare_pipelines(device: &Device, surface_config: &SurfaceConfiguration)
 
 fn prepare_targets(
     device: &Device,
+    queue: &Queue,
     surface_config: &SurfaceConfiguration,
     cs_bind_group_layout: &BindGroupLayout,
     rs_bind_group_layout: &BindGroupLayout,
@@ -157,19 +183,47 @@ fn prepare_targets(
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
-        format: wgpu::TextureFormat::Rgba8Unorm,
+        format: CS_OUTPUT_TEXTURE_FORMAT,
         usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING,
         view_formats: &[],
     });
     let compute_texture_view = compute_texture.create_view(&TextureViewDescriptor::default());
+
+    let cell_count = surface_config.width as u64 * surface_config.height as u64;
+    let buffer_size = cell_count * std::mem::size_of::<u32>() as u64;
+    let compute_buffer_a = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Compute Buffer A"),
+        size: buffer_size,
+        usage: wgpu::BufferUsages::STORAGE
+            | wgpu::BufferUsages::COPY_DST
+            | wgpu::BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
+    });
+    let compute_buffer_a_bind_group_entry = wgpu::BindGroupEntry {
+        binding: 2,
+        resource: compute_buffer_a.as_entire_binding(),
+    };
+
+    let compute_buffer_b = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Compute Buffer B"),
+        size: buffer_size,
+        usage: wgpu::BufferUsages::STORAGE
+            | wgpu::BufferUsages::COPY_DST
+            | wgpu::BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
+    });
+    let compute_buffer_b_bind_group_entry = wgpu::BindGroupEntry {
+        binding: 3,
+        resource: compute_buffer_b.as_entire_binding(),
+    };
 
     let globals_bind_group_entry = wgpu::BindGroupEntry {
         binding: 1,
         resource: globals_buffer.as_entire_binding(),
     };
 
-    let cs_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("Compute Bind Group"),
+    let cs_bind_group_ab = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("Compute Bind Group AB"),
         layout: &cs_bind_group_layout,
         entries: &[
             wgpu::BindGroupEntry {
@@ -177,6 +231,33 @@ fn prepare_targets(
                 resource: wgpu::BindingResource::TextureView(&compute_texture_view),
             },
             globals_bind_group_entry.clone(),
+            wgpu::BindGroupEntry {
+                binding: 2,
+                ..compute_buffer_a_bind_group_entry.clone()
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                ..compute_buffer_b_bind_group_entry.clone()
+            },
+        ],
+    });
+    let cs_bind_group_ba = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("Compute Bind Group BA"),
+        layout: &cs_bind_group_layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(&compute_texture_view),
+            },
+            globals_bind_group_entry.clone(),
+            wgpu::BindGroupEntry {
+                binding: 2,
+                ..compute_buffer_b_bind_group_entry.clone()
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                ..compute_buffer_a_bind_group_entry.clone()
+            },
         ],
     });
     let rs_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -191,10 +272,17 @@ fn prepare_targets(
         ],
     });
 
+    let zero_data = vec![0u32; cell_count as usize];
+    queue.write_buffer(&compute_buffer_a, 0, bytemuck::cast_slice(&zero_data));
+    queue.write_buffer(&compute_buffer_b, 0, bytemuck::cast_slice(&zero_data));
+
     Targets {
+        compute_buffer_a,
+        compute_buffer_b,
         compute_texture,
         compute_texture_view,
-        cs_bind_group,
+        cs_bind_group_ab,
+        cs_bind_group_ba,
         rs_bind_group,
     }
 }
@@ -276,9 +364,12 @@ pub struct Pipelines {
 
 #[derive(Debug)]
 pub struct Targets {
+    compute_buffer_a: Buffer,
+    compute_buffer_b: Buffer,
     compute_texture: Texture,
     compute_texture_view: TextureView,
-    cs_bind_group: BindGroup,
+    cs_bind_group_ab: BindGroup,
+    cs_bind_group_ba: BindGroup,
     rs_bind_group: BindGroup,
 }
 
@@ -299,6 +390,7 @@ pub struct Graphics {
     start_instant: Instant,
 
     mouse_pos: [f32; 2],
+    ping: bool,
 }
 
 #[repr(C)]
@@ -326,6 +418,7 @@ impl Graphics {
         self.surface.configure(&self.device, &self.surface_config);
         self.targets = prepare_targets(
             &self.device,
+            &self.queue,
             &self.surface_config,
             &self.pipelines.cs_bind_group_layout,
             &self.pipelines.rs_bind_group_layout,
@@ -340,12 +433,20 @@ impl Graphics {
         });
 
         compute_pass.set_pipeline(&self.pipelines.compute_pipeline);
-        compute_pass.set_bind_group(0, &self.targets.cs_bind_group, &[]);
+
+        let bind_group = if self.ping {
+            &self.targets.cs_bind_group_ab
+        } else {
+            &self.targets.cs_bind_group_ba
+        };
+        compute_pass.set_bind_group(0, bind_group, &[]);
 
         let x = (self.surface_config.width + 7) / 8;
         let y = (self.surface_config.height + 7) / 8;
 
         compute_pass.dispatch_workgroups(x, y, 1);
+
+        self.ping = !self.ping;
     }
 
     pub fn run_rs(&mut self, command_encoder: &mut CommandEncoder, frame: &mut SurfaceTexture) {
