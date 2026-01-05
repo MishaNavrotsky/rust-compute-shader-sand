@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use crate::graphics::{Graphics, create_graphics};
+use crate::graphics::{create_graphics, structures::CursorState, structures::Graphics};
 use winit::{
     application::ApplicationHandler,
     dpi::{PhysicalPosition, PhysicalSize},
-    event::WindowEvent,
+    event::{ElementState, MouseButton, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
     window::{Window, WindowId},
 };
@@ -43,6 +43,12 @@ impl App {
             gfx.set_mouse_pos([position.x as f32, position.y as f32]);
         }
     }
+
+    fn cursor_clicked(&mut self, cursor_state: CursorState) {
+        if let State::Ready(gfx) = &mut self.state {
+            gfx.set_cursor_state(cursor_state);
+        }
+    }
 }
 
 impl ApplicationHandler<Graphics> for App {
@@ -75,6 +81,15 @@ impl ApplicationHandler<Graphics> for App {
         event: WindowEvent,
     ) {
         match event {
+            WindowEvent::MouseInput { state, button, .. } => match (button, state) {
+                (MouseButton::Left, ElementState::Pressed) => {
+                    self.cursor_clicked(CursorState::Pressed);
+                }
+                (MouseButton::Left, ElementState::Released) => {
+                    self.cursor_clicked(CursorState::Default);
+                }
+                _ => {}
+            },
             WindowEvent::Resized(size) => self.resized(size),
             WindowEvent::RedrawRequested => self.draw(),
             WindowEvent::CloseRequested => event_loop.exit(),
