@@ -2,10 +2,9 @@ use std::{borrow::Cow, sync::Arc, time::Instant};
 
 use wgpu::{
     Color, CommandEncoder, CommandEncoderDescriptor, ComputePassDescriptor, DeviceDescriptor,
-    ExperimentalFeatures, Features, Instance, Limits, LoadOp, MemoryHints, Operations,
-    PowerPreference, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions,
-    ShaderModuleDescriptor, ShaderSource, StoreOp, SurfaceTexture, TextureFormat,
-    TextureViewDescriptor,
+    ExperimentalFeatures, Features, Instance, LoadOp, MemoryHints, Operations, PowerPreference,
+    RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, ShaderModuleDescriptor,
+    ShaderSource, StoreOp, SurfaceTexture, TextureViewDescriptor,
 };
 use winit::{dpi::PhysicalSize, event_loop::EventLoopProxy, window::Window};
 
@@ -287,15 +286,12 @@ impl structures::Graphics {
             .create_command_encoder(&CommandEncoderDescriptor { label: None });
 
         let globals = structures::Globals {
-            resolution: [
-                self.surface_config.width as f32,
-                self.surface_config.height as f32,
-            ],
+            resolution: [self.surface_config.width, self.surface_config.height],
             time: Instant::now()
                 .duration_since(self.start_instant)
                 .as_secs_f32(),
             mouse_pos: self.mouse_pos,
-            mouse_state: self.cursor_state as u32 as f32,
+            mouse_state: self.cursor_state as u32,
             ..structures::Globals::default()
         };
         self.resources_const.update_globals(&self.queue, &globals);

@@ -1,9 +1,8 @@
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, ComputePass, ComputePipeline,
-    ComputePipelineDescriptor, Device, FragmentState, PipelineCompilationOptions, PipelineLayout,
+    BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, Device, FragmentState,
     PipelineLayoutDescriptor, RenderPass, RenderPipeline, RenderPipelineDescriptor, ShaderModule,
-    ShaderStages, SurfaceConfiguration, TextureFormat, VertexState,
+    ShaderStages, TextureFormat, VertexState,
 };
 
 pub struct RsPipeline {

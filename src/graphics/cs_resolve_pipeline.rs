@@ -1,8 +1,8 @@
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, ComputePass, ComputePipeline,
-    ComputePipelineDescriptor, Device, PipelineCompilationOptions, PipelineLayout,
-    PipelineLayoutDescriptor, ShaderModule, ShaderStages,
+    ComputePipelineDescriptor, Device, PipelineCompilationOptions, PipelineLayoutDescriptor,
+    ShaderModule, ShaderStages,
 };
 
 pub struct CsResolvePipeline {

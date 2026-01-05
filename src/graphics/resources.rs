@@ -1,8 +1,5 @@
 use bytemuck::Zeroable;
-use wgpu::{
-    Buffer, BufferDescriptor, BufferUsages, Device, Extent3d, Queue, SurfaceConfiguration, Texture,
-    TextureDescriptor, TextureDimension, TextureUsages, TextureView, TextureViewDescriptor,
-};
+use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, Queue, SurfaceConfiguration};
 
 use crate::graphics::structures::{Globals, GridCell, Intent};
 

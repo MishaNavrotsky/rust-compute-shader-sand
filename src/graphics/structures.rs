@@ -49,21 +49,21 @@ pub struct Graphics {
 }
 
 // struct Globals {
-//   resolution    : vec2<f32>,
+//   resolution    : vec2<u32>,
 //   mouse_pos     : vec2<f32>,
 
 //   time          : f32,
-//   cursor_state  : f32,
+//   mouse_state  : u32,
 //   _pad0         : vec2<f32>,
 // };
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Default, Debug)]
 pub struct Globals {
-    pub resolution: [f32; 2], // width, height
+    pub resolution: [u32; 2], // width, height
     pub mouse_pos: [f32; 2],  // x, y
 
     pub time: f32,
-    pub mouse_state: f32,
+    pub mouse_state: u32,
     pub _pad0: [f32; 2], // padding
 }
 
