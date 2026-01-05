@@ -122,7 +122,7 @@ pub async fn create_graphics(window: Arc<Window>, proxy: EventLoopProxy<structur
 fn create_resources_state(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-    surface_config: &wgpu::wgt::SurfaceConfiguration<Vec<TextureFormat>>,
+    surface_config: &wgpu::SurfaceConfiguration,
 ) -> SimulationStateResources {
     let resources_state = SimulationStateResources::new(device, surface_config);
     resources_state.zero_initialize(queue);
