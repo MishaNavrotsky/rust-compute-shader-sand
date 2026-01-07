@@ -185,12 +185,12 @@ fn create_frame_resources(
         FrameResources {
             cs_intent_pipeline_bind_group: cs_intent_pipeline_bind_group_a,
             cs_resolve_pipeline_bind_group: cs_resolve_pipeline_bind_group_ab,
-            rs_pipeline_bind_group: rs_pipeline_bind_group_a,
+            rs_pipeline_bind_group: rs_pipeline_bind_group_b,
         },
         FrameResources {
             cs_intent_pipeline_bind_group: cs_intent_pipeline_bind_group_b,
             cs_resolve_pipeline_bind_group: cs_resolve_pipeline_bind_group_ba,
-            rs_pipeline_bind_group: rs_pipeline_bind_group_b,
+            rs_pipeline_bind_group: rs_pipeline_bind_group_a,
         },
     ];
     frames
@@ -292,6 +292,7 @@ impl structures::Graphics {
                 .as_secs_f32(),
             mouse_pos: self.mouse_pos,
             mouse_state: self.cursor_state as u32,
+            frame: self.frame_index as u32,
             ..structures::Globals::default()
         };
         self.resources_const.update_globals(&self.queue, &globals);
@@ -302,6 +303,6 @@ impl structures::Graphics {
         self.queue.submit(Some(encoder.finish()));
         frame.present();
 
-        self.frame_index ^= 1;
+        self.frame_index += 1;
     }
 }

@@ -94,7 +94,7 @@ impl ApplicationHandler<Graphics> for App {
             WindowEvent::RedrawRequested => self.draw(),
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::CursorMoved {
-                device_id,
+                device_id: _,
                 position,
             } => self.cursor_moved(&position),
             _ => {}

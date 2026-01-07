@@ -64,7 +64,8 @@ pub struct Globals {
 
     pub time: f32,
     pub mouse_state: u32,
-    pub _pad0: [f32; 2], // padding
+    pub frame: u32,
+    pub _pad0: [f32; 1], // padding
 }
 
 #[repr(u32)]
